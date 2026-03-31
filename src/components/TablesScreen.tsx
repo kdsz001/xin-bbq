@@ -47,7 +47,7 @@ export default function TablesScreen({ onOpenTable, onEndDay }: TablesScreenProp
         <h1 className="text-xl font-bold">桌位总览</h1>
         <button
           onClick={() => setShowEndDay(true)}
-          className="text-sm text-gray-400 bg-gray-100 px-3 py-1.5 rounded-lg active:bg-gray-200"
+          className="text-sm text-white bg-[#ea580c] px-4 py-2 rounded-xl font-medium shadow active:bg-orange-700"
         >
           今日收工 🌙
         </button>
