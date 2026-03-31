@@ -47,10 +47,9 @@ export default function Home() {
       const setupDone = settings.isSetupDone();
       const hasPin = settings.getPinHash();
 
-      if (!setupDone) {
+      if (!hasPin) {
+        // No PIN set yet, show setup screen
         setLocked(true);
-      } else if (!hasPin) {
-        setLocked(false);
       } else if (isSessionValid()) {
         setLocked(false);
       } else {

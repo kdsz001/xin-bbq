@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { settings } from '@/lib/store';
 
+const PIN_LENGTH = 6;
+
 interface PinScreenProps {
   onUnlock: () => void;
 }
@@ -42,10 +44,10 @@ export default function PinScreen({ onUnlock }: PinScreenProps) {
   const handleDigit = (digit: string) => {
     if (lockCountdown > 0) return;
     const newPin = pin + digit;
-    if (newPin.length <= 4) {
+    if (newPin.length <= PIN_LENGTH) {
       setPin(newPin);
       setError('');
-      if (newPin.length === 4) {
+      if (newPin.length === PIN_LENGTH) {
         setTimeout(() => handlePinComplete(newPin), 150);
       }
     }
@@ -98,66 +100,61 @@ export default function PinScreen({ onUnlock }: PinScreenProps) {
   };
 
   const saveSession = () => {
-    const expiry = Date.now() + 8 * 60 * 60 * 1000; // 8 hours
+    const expiry = Date.now() + 8 * 60 * 60 * 1000;
     sessionStorage.setItem('xin_session', String(expiry));
   };
 
   const title = isSetup
-    ? step === 'enter' ? '设置 PIN 码' : '再次输入确认'
-    : '输入 PIN 码';
+    ? step === 'enter' ? '设置密码' : '再次输入确认'
+    : '输入密码';
 
   const subtitle = isSetup
-    ? step === 'enter' ? '首次使用，请设置 4 位数字密码' : '请再输入一次确认'
-    : '请输入 4 位数字密码';
+    ? step === 'enter' ? '首次使用，请设置 6 位数字密码' : '请再输入一次确认'
+    : '请输入 6 位数字密码';
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-8 bg-[#f8fafc]">
-      {/* Header */}
       <div className="text-center mb-8">
         <div className="text-4xl mb-3">🔥</div>
         <h1 className="text-2xl font-bold text-gray-800">鑫烧烤</h1>
         <p className="text-gray-500 mt-1 text-sm">{subtitle}</p>
       </div>
 
-      {/* Title */}
       <h2 className="text-lg font-medium mb-6">{title}</h2>
 
       {/* PIN Dots */}
-      <div className="flex gap-4 mb-4">
-        {[0, 1, 2, 3].map(i => (
+      <div className="flex gap-3 mb-4">
+        {Array.from({ length: PIN_LENGTH }).map((_, i) => (
           <div
             key={i}
-            className={`w-4 h-4 rounded-full transition-all ${
+            className={`w-3.5 h-3.5 rounded-full transition-all ${
               i < pin.length ? 'bg-[#ea580c] scale-110' : 'bg-gray-200'
             }`}
           />
         ))}
       </div>
 
-      {/* Error */}
       {error && (
         <div className="text-red-500 text-sm mb-4 text-center">{error}</div>
       )}
 
-      {/* Lock countdown */}
       {lockCountdown > 0 && (
         <div className="text-gray-400 text-sm mb-4">
           请等待 {lockCountdown} 秒后重试
         </div>
       )}
 
-      {/* Hidden input for keyboard on mobile */}
       <input
         ref={inputRef}
         type="tel"
         className="opacity-0 absolute w-0 h-0"
-        maxLength={4}
+        maxLength={PIN_LENGTH}
         value={pin}
         onChange={e => {
-          const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+          const val = e.target.value.replace(/\D/g, '').slice(0, PIN_LENGTH);
           setPin(val);
           setError('');
-          if (val.length === 4) {
+          if (val.length === PIN_LENGTH) {
             setTimeout(() => handlePinComplete(val), 150);
           }
         }}
@@ -192,19 +189,6 @@ export default function PinScreen({ onUnlock }: PinScreenProps) {
           删除
         </button>
       </div>
-
-      {/* Skip setup for first time */}
-      {isSetup && (
-        <button
-          onClick={() => {
-            settings.markSetupDone();
-            onUnlock();
-          }}
-          className="mt-6 text-sm text-gray-400 active:text-gray-600"
-        >
-          跳过，暂不设置密码
-        </button>
-      )}
     </div>
   );
 }

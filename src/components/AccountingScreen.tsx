@@ -5,9 +5,10 @@ import { orders, orderItems, expenses, getStats, settings } from '@/lib/store';
 import { Order, Expense, EXPENSE_CATEGORIES, ExpenseCategory } from '@/lib/types';
 
 export default function AccountingScreen() {
-  const [locked, setLocked] = useState(true);
+  const [historyUnlocked, setHistoryUnlocked] = useState(false);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
+  const [showPinPrompt, setShowPinPrompt] = useState(false);
   const [activeTab, setActiveTab] = useState<'income' | 'expense'>('income');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [todayStats, setTodayStats] = useState({ revenue: 0, expenses: 0, profit: 0, orderCount: 0 });
@@ -35,21 +36,34 @@ export default function AccountingScreen() {
   }, [selectedDate]);
 
   useEffect(() => {
-    // If no PIN is set, skip lock
+    // If no PIN is set, history is always unlocked
     const hasPin = settings.getPinHash();
-    if (!hasPin) setLocked(false);
-    else setLocked(true);
+    if (!hasPin) setHistoryUnlocked(true);
   }, []);
 
   useEffect(() => {
-    if (!locked) refresh();
-  }, [refresh, locked]);
+    refresh();
+  }, [refresh]);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const isViewingHistory = selectedDate !== today;
+  const needsPin = isViewingHistory && !historyUnlocked && !!settings.getPinHash();
+
+  const handleDateChange = (date: string) => {
+    if (date !== today && !historyUnlocked && settings.getPinHash()) {
+      setShowPinPrompt(true);
+      return;
+    }
+    setSelectedDate(date);
+  };
 
   const handlePinSubmit = () => {
     const stored = settings.getPinHash();
     if (pin === stored) {
-      setLocked(false);
+      setHistoryUnlocked(true);
+      setShowPinPrompt(false);
       setPinError('');
+      setPin('');
     } else {
       setPinError('密码错误');
       setPin('');
@@ -103,36 +117,7 @@ export default function AccountingScreen() {
     setExpenseDate(selectedDate);
   };
 
-  const isToday = selectedDate === new Date().toISOString().slice(0, 10);
-
-  if (locked) {
-    return (
-      <div className="pb-20 pt-4 px-4">
-        <h1 className="text-xl font-bold mb-4">记账</h1>
-        <div className="flex flex-col items-center justify-center py-16">
-          <div className="text-4xl mb-4">🔒</div>
-          <p className="text-gray-500 mb-6">财务数据需要输入密码查看</p>
-          <input
-            type="tel"
-            maxLength={4}
-            value={pin}
-            onChange={e => { setPin(e.target.value.replace(/\D/g, '')); setPinError(''); }}
-            onKeyDown={e => { if (e.key === 'Enter') handlePinSubmit(); }}
-            placeholder="输入 4 位 PIN 码"
-            className="w-48 text-center text-2xl tracking-[0.5em] border border-gray-200 rounded-xl py-3 mb-3"
-            autoFocus
-          />
-          {pinError && <p className="text-red-500 text-sm mb-3">{pinError}</p>}
-          <button
-            onClick={handlePinSubmit}
-            className="bg-[#ea580c] text-white px-8 py-3 rounded-xl font-medium active:bg-orange-700"
-          >
-            解锁
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const isToday = selectedDate === today;
 
   return (
     <div className="pb-20 pt-4 px-4">
@@ -194,7 +179,7 @@ export default function AccountingScreen() {
         <input
           type="date"
           value={selectedDate}
-          onChange={e => setSelectedDate(e.target.value)}
+          onChange={e => handleDateChange(e.target.value)}
           className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm"
         />
         {!isToday && (
@@ -405,6 +390,42 @@ export default function AccountingScreen() {
                 className="flex-1 bg-[#ea580c] text-white rounded-xl py-3 font-bold active:bg-orange-700"
               >
                 保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PIN Prompt for History */}
+      {showPinPrompt && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center max-w-[480px] mx-auto px-6">
+          <div className="bg-white rounded-2xl w-full p-6 text-center">
+            <div className="text-3xl mb-3">🔒</div>
+            <h2 className="text-lg font-bold mb-2">查看历史记录</h2>
+            <p className="text-gray-500 text-sm mb-4">输入密码查看历史财务数据</p>
+            <input
+              type="tel"
+              maxLength={6}
+              value={pin}
+              onChange={e => { setPin(e.target.value.replace(/\D/g, '')); setPinError(''); }}
+              onKeyDown={e => { if (e.key === 'Enter') handlePinSubmit(); }}
+              placeholder="输入 6 位密码"
+              className="w-48 text-center text-2xl tracking-[0.3em] border border-gray-200 rounded-xl py-3 mb-3"
+              autoFocus
+            />
+            {pinError && <p className="text-red-500 text-sm mb-3">{pinError}</p>}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowPinPrompt(false); setPin(''); setPinError(''); }}
+                className="flex-1 border border-gray-300 rounded-xl py-3 font-medium active:bg-gray-100"
+              >
+                取消
+              </button>
+              <button
+                onClick={handlePinSubmit}
+                className="flex-1 bg-[#ea580c] text-white rounded-xl py-3 font-bold active:bg-orange-700"
+              >
+                解锁
               </button>
             </div>
           </div>

@@ -5,6 +5,9 @@ import { settings, dishes } from '@/lib/store';
 import { Dish } from '@/lib/types';
 
 export default function SettingsScreen() {
+  const [locked, setLocked] = useState(true);
+  const [authPin, setAuthPin] = useState('');
+  const [authError, setAuthError] = useState('');
   const [tableCount, setTableCount] = useState(10);
   const [menuItems, setMenuItems] = useState<Dish[]>([]);
   const [hasPin, setHasPin] = useState(false);
@@ -27,6 +30,8 @@ export default function SettingsScreen() {
   }, []);
 
   useEffect(() => {
+    const stored = settings.getPinHash();
+    if (!stored) setLocked(false);
     refresh();
   }, [refresh]);
 
@@ -38,7 +43,7 @@ export default function SettingsScreen() {
 
   const handlePinSave = () => {
     if (pinStep === 'new') {
-      if (newPin.length !== 4) { setPinError('请输入 4 位数字'); return; }
+      if (newPin.length !== 6) { setPinError('请输入 6 位数字'); return; }
       setPinStep('confirm');
       setPinError('');
       return;
@@ -110,6 +115,43 @@ export default function SettingsScreen() {
     setDishCategory('');
   };
 
+  if (locked) {
+    return (
+      <div className="pb-20 pt-4 px-4">
+        <h1 className="text-xl font-bold mb-6">设置</h1>
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="text-4xl mb-4">🔒</div>
+          <p className="text-gray-500 mb-6">输入密码进入设置</p>
+          <input
+            type="tel"
+            maxLength={6}
+            value={authPin}
+            onChange={e => { setAuthPin(e.target.value.replace(/\D/g, '')); setAuthError(''); }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                if (authPin === settings.getPinHash()) { setLocked(false); setAuthError(''); }
+                else { setAuthError('密码错误'); setAuthPin(''); }
+              }
+            }}
+            placeholder="输入 6 位密码"
+            className="w-48 text-center text-2xl tracking-[0.3em] border border-gray-200 rounded-xl py-3 mb-3"
+            autoFocus
+          />
+          {authError && <p className="text-red-500 text-sm mb-3">{authError}</p>}
+          <button
+            onClick={() => {
+              if (authPin === settings.getPinHash()) { setLocked(false); setAuthError(''); }
+              else { setAuthError('密码错误'); setAuthPin(''); }
+            }}
+            className="bg-[#ea580c] text-white px-8 py-3 rounded-xl font-medium active:bg-orange-700"
+          >
+            解锁
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pb-20 pt-4 px-4">
       <h1 className="text-xl font-bold mb-6">设置</h1>
@@ -174,11 +216,11 @@ export default function SettingsScreen() {
               {pinStep === 'new' ? '设置新 PIN 码' : '再次输入确认'}
             </h2>
             <p className="text-gray-500 text-sm mb-4">
-              {pinStep === 'new' ? '输入 4 位数字密码' : '请再输入一次确认'}
+              {pinStep === 'new' ? '输入 6 位数字密码' : '请再输入一次确认'}
             </p>
             <input
               type="tel"
-              maxLength={4}
+              maxLength={6}
               value={pinStep === 'new' ? newPin : confirmPin}
               onChange={e => {
                 const val = e.target.value.replace(/\D/g, '');
