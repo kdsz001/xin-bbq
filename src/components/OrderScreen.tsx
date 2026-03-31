@@ -20,15 +20,17 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
   const refresh = useCallback(() => {
     setMenuItems(dishes.getAll());
 
-    let order = orders.getOpenByTable(tableNumber);
-    if (!order) {
-      order = orders.create(tableNumber);
+    const order = orders.getOpenByTable(tableNumber);
+    if (order) {
+      setOrderId(order.id);
+      const items = orderItems.getByOrderId(order.id);
+      setCurrentItems(items);
+      setTotal(items.reduce((sum, item) => sum + item.subtotal, 0));
+    } else {
+      setOrderId('');
+      setCurrentItems([]);
+      setTotal(0);
     }
-    setOrderId(order.id);
-
-    const items = orderItems.getByOrderId(order.id);
-    setCurrentItems(items);
-    setTotal(items.reduce((sum, item) => sum + item.subtotal, 0));
   }, [tableNumber]);
 
   useEffect(() => {
@@ -36,12 +38,25 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
   }, [refresh]);
 
   const addItem = (dish: Dish) => {
-    orderItems.addItem(orderId, dish);
+    let id = orderId;
+    if (!id) {
+      const order = orders.create(tableNumber);
+      id = order.id;
+      setOrderId(id);
+    }
+    orderItems.addItem(id, dish);
     refresh();
   };
 
   const removeItem = (dishId: string) => {
+    if (!orderId) return;
     orderItems.removeItem(orderId, dishId);
+    // If no items left, delete the empty order
+    const remaining = orderItems.getByOrderId(orderId);
+    if (remaining.length === 0) {
+      orders.void(orderId);
+      setOrderId('');
+    }
     refresh();
   };
 

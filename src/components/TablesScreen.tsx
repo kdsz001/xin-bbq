@@ -27,7 +27,8 @@ export default function TablesScreen({ onOpenTable, onEndDay }: TablesScreenProp
     for (let i = 1; i <= count; i++) {
       const order = orders.getOpenByTable(i);
       const items = order ? orderItems.getByOrderId(order.id) : [];
-      tableInfos.push({ number: i, order: order ?? null, itemCount: items.length });
+      // Only show as active if there are actual items
+      tableInfos.push({ number: i, order: items.length > 0 ? (order ?? null) : null, itemCount: items.length });
     }
     setTables(tableInfos);
     const stats = getStats('today');
