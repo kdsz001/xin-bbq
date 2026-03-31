@@ -8,6 +8,7 @@ import AccountingScreen from '@/components/AccountingScreen';
 import SettingsScreen from '@/components/SettingsScreen';
 import PinScreen from '@/components/PinScreen';
 import OnlineStatus from '@/components/OnlineStatus';
+import StartDayScreen from '@/components/StartDayScreen';
 import { settings, initialSync } from '@/lib/store';
 
 type Tab = 'tables' | 'accounting' | 'settings';
@@ -19,9 +20,24 @@ function isSessionValid(): boolean {
   return Date.now() < parseInt(expiry, 10);
 }
 
+function isTodayStarted(): boolean {
+  if (typeof window === 'undefined') return false;
+  const last = localStorage.getItem('xin_day_started');
+  return last === new Date().toISOString().slice(0, 10);
+}
+
+function markDayStarted(): void {
+  localStorage.setItem('xin_day_started', new Date().toISOString().slice(0, 10));
+}
+
+function markDayEnded(): void {
+  localStorage.removeItem('xin_day_started');
+}
+
 export default function Home() {
   const [locked, setLocked] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [dayStarted, setDayStarted] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('tables');
   const [orderTable, setOrderTable] = useState<number | null>(null);
 
@@ -32,16 +48,15 @@ export default function Home() {
       const hasPin = settings.getPinHash();
 
       if (!setupDone) {
-        // First time use, show PIN setup
         setLocked(true);
       } else if (!hasPin) {
-        // Setup done but no PIN (user skipped)
         setLocked(false);
       } else if (isSessionValid()) {
         setLocked(false);
       } else {
         setLocked(true);
       }
+      setDayStarted(isTodayStarted());
       setLoading(false);
     }
     init();
@@ -59,6 +74,15 @@ export default function Home() {
     return <PinScreen onUnlock={() => setLocked(false)} />;
   }
 
+  if (!dayStarted) {
+    return (
+      <StartDayScreen onStart={() => {
+        markDayStarted();
+        setDayStarted(true);
+      }} />
+    );
+  }
+
   if (orderTable !== null) {
     return (
       <OrderScreen
@@ -71,7 +95,15 @@ export default function Home() {
   return (
     <>
       <OnlineStatus />
-      {activeTab === 'tables' && <TablesScreen onOpenTable={setOrderTable} />}
+      {activeTab === 'tables' && (
+        <TablesScreen
+          onOpenTable={setOrderTable}
+          onEndDay={() => {
+            markDayEnded();
+            setDayStarted(false);
+          }}
+        />
+      )}
       {activeTab === 'accounting' && <AccountingScreen />}
       {activeTab === 'settings' && <SettingsScreen />}
       <BottomNav active={activeTab} onNavigate={setActiveTab} />

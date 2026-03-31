@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { orders, orderItems, settings, getStats } from '@/lib/store';
 import { Order } from '@/lib/types';
+import EndDayModal from './EndDayModal';
 
 interface TablesScreenProps {
   onOpenTable: (tableNumber: number) => void;
+  onEndDay: () => void;
 }
 
 interface TableInfo {
@@ -14,9 +16,10 @@ interface TableInfo {
   itemCount: number;
 }
 
-export default function TablesScreen({ onOpenTable }: TablesScreenProps) {
+export default function TablesScreen({ onOpenTable, onEndDay }: TablesScreenProps) {
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [todayRevenue, setTodayRevenue] = useState(0);
+  const [showEndDay, setShowEndDay] = useState(false);
 
   const refresh = useCallback(() => {
     const count = settings.getTableCount();
@@ -39,7 +42,16 @@ export default function TablesScreen({ onOpenTable }: TablesScreenProps) {
 
   return (
     <div className="pb-24 pt-4 px-4">
-      <h1 className="text-xl font-bold mb-4">桌位总览</h1>
+      {/* Header with end-day button */}
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-xl font-bold">桌位总览</h1>
+        <button
+          onClick={() => setShowEndDay(true)}
+          className="text-sm text-gray-400 bg-gray-100 px-3 py-1.5 rounded-lg active:bg-gray-200"
+        >
+          今日收工 🌙
+        </button>
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         {tables.map(table => {
@@ -79,6 +91,17 @@ export default function TablesScreen({ onOpenTable }: TablesScreenProps) {
           <span className="text-xl font-bold text-[#ea580c]">¥{todayRevenue.toFixed(0)}</span>
         </div>
       </div>
+
+      {/* End Day Modal */}
+      {showEndDay && (
+        <EndDayModal
+          onClose={() => setShowEndDay(false)}
+          onConfirm={() => {
+            setShowEndDay(false);
+            onEndDay();
+          }}
+        />
+      )}
     </div>
   );
 }
