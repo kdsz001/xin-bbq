@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Dish, Order, OrderItem, Expense } from './types';
+import { Dish, Order, OrderItem, Expense, Settlement } from './types';
 
 // ==================== Local Cache Layer ====================
 // All reads come from localStorage (instant).
@@ -56,18 +56,20 @@ let synced = false;
 export async function initialSync(): Promise<void> {
   if (synced) return;
   try {
-    const [settingsRes, dishesRes, ordersRes, itemsRes, expensesRes] = await Promise.all([
+    const [settingsRes, dishesRes, ordersRes, itemsRes, expensesRes, settlementsRes] = await Promise.all([
       supabase.from('settings').select('*'),
       supabase.from('dishes').select('*'),
       supabase.from('orders').select('*'),
       supabase.from('order_items').select('*'),
       supabase.from('expenses').select('*'),
+      supabase.from('settlements').select('*'),
     ]);
     if (settingsRes.data) setLocal('xin_settings', settingsRes.data);
     if (dishesRes.data) setLocal('xin_dishes', dishesRes.data);
     if (ordersRes.data) setLocal('xin_orders', ordersRes.data);
     if (itemsRes.data) setLocal('xin_order_items', itemsRes.data);
     if (expensesRes.data) setLocal('xin_expenses', expensesRes.data);
+    if (settlementsRes.data) setLocal('xin_settlements', settlementsRes.data);
     synced = true;
   } catch {
     // Offline or error — use whatever is in localStorage
@@ -124,11 +126,11 @@ export const dishes = {
   getAllIncludingInactive(): Dish[] {
     return getLocal<Dish>('xin_dishes').sort((a, b) => a.sort_order - b.sort_order);
   },
-  create(name: string, price: number, category: string = ''): Dish {
+  create(name: string, price: number, category: string = '', owner: 'self' | 'partner' = 'self'): Dish {
     const all = getLocal<Dish>('xin_dishes');
     const maxOrder = all.length > 0 ? Math.max(...all.map(d => d.sort_order)) : 0;
     const dish: Dish = {
-      id: generateId(), name, price, category,
+      id: generateId(), name, price, category, owner,
       is_active: true, sort_order: maxOrder + 1,
       created_at: new Date().toISOString(),
     };
@@ -137,7 +139,7 @@ export const dishes = {
     bgSync(() => supabase.from('dishes').insert(dish).then(() => {}));
     return dish;
   },
-  update(id: string, updates: Partial<Pick<Dish, 'name' | 'price' | 'category' | 'is_active' | 'sort_order'>>): void {
+  update(id: string, updates: Partial<Pick<Dish, 'name' | 'price' | 'category' | 'is_active' | 'sort_order' | 'owner'>>): void {
     const all = getLocal<Dish>('xin_dishes');
     const idx = all.findIndex(d => d.id === id);
     if (idx >= 0) {
@@ -177,6 +179,7 @@ export const orders = {
     const order: Order = {
       id: generateId(), table_number: tableNumber, status: 'open',
       created_at: new Date().toISOString(), settled_at: null, total: 0,
+      payment_collector: 'self',
     };
     all.push(order);
     setLocal('xin_orders', all);
@@ -184,7 +187,7 @@ export const orders = {
     logEvent('order_create', { table_number: tableNumber });
     return order;
   },
-  settle(id: string, customerCount: number = 0): void {
+  settle(id: string, customerCount: number = 0, paymentCollector: 'self' | 'partner' = 'self'): void {
     const all = getLocal<Order>('xin_orders');
     const idx = all.findIndex(o => o.id === id);
     if (idx >= 0) {
@@ -193,13 +196,15 @@ export const orders = {
       all[idx].status = 'settled';
       all[idx].settled_at = new Date().toISOString();
       all[idx].total = total;
+      all[idx].payment_collector = paymentCollector;
       setLocal('xin_orders', all);
       bgSync(() => supabase.from('orders').update({
-        status: 'settled', settled_at: all[idx].settled_at, total, customer_count: customerCount,
+        status: 'settled', settled_at: all[idx].settled_at, total,
+        customer_count: customerCount, payment_collector: paymentCollector,
       }).eq('id', id).then(() => {}));
       logEvent('order_settle', {
         table_number: all[idx].table_number, total, customer_count: customerCount,
-        items_count: items.length,
+        items_count: items.length, payment_collector: paymentCollector,
       });
     }
   },
@@ -249,6 +254,7 @@ export const orderItems = {
       id: generateId(), order_id: orderId, dish_id: dish.id,
       dish_name: dish.name, price: dish.price, quantity,
       subtotal: dish.price * quantity,
+      dish_owner: dish.owner || 'self',
     };
     all.push(item);
     setLocal('xin_order_items', all);
@@ -333,6 +339,102 @@ export const expenses = {
     bgSync(() => supabase.from('expenses').delete().eq('id', id).then(() => {}));
   },
 };
+
+// ==================== Settlements ====================
+
+export const settlements = {
+  getAll(): Settlement[] {
+    return getLocal<Settlement>('xin_settlements').sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
+  create(amount: number, note: string = ''): Settlement {
+    const all = getLocal<Settlement>('xin_settlements');
+    const s: Settlement = {
+      id: generateId(), amount, note,
+      date: new Date().toISOString().slice(0, 10),
+      created_at: new Date().toISOString(),
+    };
+    all.push(s);
+    setLocal('xin_settlements', all);
+    bgSync(() => supabase.from('settlements').insert(s).then(() => {}));
+    logEvent('settlement_create', { amount, note });
+    return s;
+  },
+  delete(id: string): void {
+    const all = getLocal<Settlement>('xin_settlements');
+    setLocal('xin_settlements', all.filter(s => s.id !== id));
+    bgSync(() => supabase.from('settlements').delete().eq('id', id).then(() => {}));
+  },
+  getTotal(): number {
+    return getLocal<Settlement>('xin_settlements').reduce((sum, s) => sum + s.amount, 0);
+  },
+};
+
+// ==================== Partner Stats ====================
+
+export function getPartnerStats() {
+  const allOrders = getLocal<Order>('xin_orders').filter(o => o.status === 'settled');
+  const allItems = getLocal<OrderItem>('xin_order_items');
+
+  // 饭店代收的单里，属于烧烤店的菜金额
+  let partnerOwesSelf = 0;
+  // 烧烤店自收的单里，属于饭店的菜金额
+  let selfOwesPartner = 0;
+
+  for (const order of allOrders) {
+    const items = allItems.filter(i => i.order_id === order.id);
+    for (const item of items) {
+      if (order.payment_collector === 'partner' && (item.dish_owner === 'self' || !item.dish_owner)) {
+        partnerOwesSelf += item.subtotal;
+      }
+      if (order.payment_collector === 'self' && item.dish_owner === 'partner') {
+        selfOwesPartner += item.subtotal;
+      }
+    }
+  }
+
+  const netAmount = partnerOwesSelf - selfOwesPartner;
+  const totalSettled = settlements.getTotal();
+  const remaining = netAmount - totalSettled;
+
+  return { partnerOwesSelf, selfOwesPartner, netAmount, totalSettled, remaining };
+}
+
+// 生成对账单明细（按天分组）
+export function getPartnerStatement() {
+  const allOrders = getLocal<Order>('xin_orders').filter(o => o.status === 'settled');
+  const allItems = getLocal<OrderItem>('xin_order_items');
+
+  const dayMap = new Map<string, { date: string; items: { dish_name: string; quantity: number; subtotal: number; collector: string; dish_owner: string }[] }>();
+
+  for (const order of allOrders) {
+    const collector = order.payment_collector || 'self';
+    const items = allItems.filter(i => i.order_id === order.id);
+    // Only include orders where money crosses between partners
+    const hasCrossItems = items.some(i =>
+      (collector === 'partner' && (i.dish_owner === 'self' || !i.dish_owner)) ||
+      (collector === 'self' && i.dish_owner === 'partner')
+    );
+    if (!hasCrossItems) continue;
+
+    const date = (order.settled_at || order.created_at).slice(0, 10);
+    if (!dayMap.has(date)) dayMap.set(date, { date, items: [] });
+    const day = dayMap.get(date)!;
+
+    for (const item of items) {
+      const isCross =
+        (collector === 'partner' && (item.dish_owner === 'self' || !item.dish_owner)) ||
+        (collector === 'self' && item.dish_owner === 'partner');
+      if (isCross) {
+        day.items.push({
+          dish_name: item.dish_name, quantity: item.quantity,
+          subtotal: item.subtotal, collector, dish_owner: item.dish_owner || 'self',
+        });
+      }
+    }
+  }
+
+  return Array.from(dayMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+}
 
 // ==================== Stats ====================
 

@@ -16,6 +16,7 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
   const [total, setTotal] = useState(0);
   const [showSettleConfirm, setShowSettleConfirm] = useState(false);
   const [customerCount, setCustomerCount] = useState(1);
+  const [paymentCollector, setPaymentCollector] = useState<'self' | 'partner'>('self');
 
   const refresh = useCallback(() => {
     setMenuItems(dishes.getAll());
@@ -66,7 +67,7 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
   };
 
   const handleSettle = () => {
-    orders.settle(orderId, customerCount);
+    orders.settle(orderId, customerCount, paymentCollector);
     onBack();
   };
 
@@ -184,7 +185,29 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
               <span className="font-bold text-lg">合计</span>
               <span className="font-bold text-lg text-[#ea580c]">¥{total.toFixed(0)}</span>
             </div>
-            <div className="text-sm text-gray-500 mb-6">用餐人数：{customerCount} 人 · 人均 ¥{customerCount > 0 ? (total / customerCount).toFixed(0) : 0}</div>
+            <div className="text-sm text-gray-500 mb-4">用餐人数：{customerCount} 人 · 人均 ¥{customerCount > 0 ? (total / customerCount).toFixed(0) : 0}</div>
+            <div className="flex gap-2 mb-6">
+              <button
+                onClick={() => setPaymentCollector('self')}
+                className={`px-4 py-1.5 rounded-full text-sm ${
+                  paymentCollector === 'self'
+                    ? 'bg-[#ea580c] text-white'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                自己收款
+              </button>
+              <button
+                onClick={() => setPaymentCollector('partner')}
+                className={`px-4 py-1.5 rounded-full text-sm ${
+                  paymentCollector === 'partner'
+                    ? 'bg-[#ea580c] text-white'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                饭店代收
+              </button>
+            </div>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowSettleConfirm(false)}

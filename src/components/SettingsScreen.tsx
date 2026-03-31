@@ -22,6 +22,7 @@ export default function SettingsScreen() {
   const [dishPrice, setDishPrice] = useState('');
   const [dishCategory, setDishCategory] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [dishOwner, setDishOwner] = useState<'self' | 'partner'>('self');
 
   const refresh = useCallback(() => {
     setTableCount(settings.getTableCount());
@@ -80,9 +81,10 @@ export default function SettingsScreen() {
         name: dishName.trim(),
         price,
         category: dishCategory.trim(),
+        owner: dishOwner,
       });
     } else {
-      dishes.create(dishName.trim(), price, dishCategory.trim());
+      dishes.create(dishName.trim(), price, dishCategory.trim(), dishOwner);
     }
     resetDishForm();
     refresh();
@@ -99,6 +101,7 @@ export default function SettingsScreen() {
     setDishName(dish.name);
     setDishPrice(String(dish.price));
     setDishCategory(dish.category);
+    setDishOwner(dish.owner || 'self');
     setShowDishForm(true);
   };
 
@@ -113,6 +116,7 @@ export default function SettingsScreen() {
     setDishName('');
     setDishPrice('');
     setDishCategory('');
+    setDishOwner('self');
   };
 
   if (locked) {
@@ -279,11 +283,18 @@ export default function SettingsScreen() {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{dish.name}</div>
                     <div className="text-sm text-[#ea580c]">¥{dish.price}</div>
-                    {dish.category && (
-                      <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded mt-1 inline-block">
-                        {dish.category}
-                      </span>
-                    )}
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      {dish.category && (
+                        <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded inline-block">
+                          {dish.category}
+                        </span>
+                      )}
+                      {dish.owner === 'partner' && (
+                        <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded inline-block">
+                          合作饭店
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 ml-2">
                     <button
@@ -343,6 +354,33 @@ export default function SettingsScreen() {
                   placeholder="例如：5"
                   className="w-full border border-gray-200 rounded-lg px-3 py-3 text-lg"
                 />
+              </div>
+              <div>
+                <label className="text-sm text-gray-500 mb-1 block">归属</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDishOwner('self')}
+                    className={`px-3 py-1.5 rounded-full text-sm ${
+                      dishOwner === 'self'
+                        ? 'bg-[#ea580c] text-white'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    自己
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDishOwner('partner')}
+                    className={`px-3 py-1.5 rounded-full text-sm ${
+                      dishOwner === 'partner'
+                        ? 'bg-[#ea580c] text-white'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    合作饭店
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="text-sm text-gray-500 mb-1 block">分类</label>

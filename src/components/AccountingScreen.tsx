@@ -1,15 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { orders, orderItems, expenses, getStats, settings } from '@/lib/store';
-import { Order, Expense, EXPENSE_CATEGORIES, ExpenseCategory } from '@/lib/types';
+import { orders, orderItems, expenses, getStats, settings, settlements, getPartnerStats, getPartnerStatement } from '@/lib/store';
+import { Order, Expense, Settlement, EXPENSE_CATEGORIES, ExpenseCategory } from '@/lib/types';
 
 export default function AccountingScreen() {
   const [historyUnlocked, setHistoryUnlocked] = useState(false);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [showPinPrompt, setShowPinPrompt] = useState(false);
-  const [activeTab, setActiveTab] = useState<'income' | 'expense'>('income');
+  const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'partner'>('income');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [todayStats, setTodayStats] = useState({ revenue: 0, expenses: 0, profit: 0, orderCount: 0 });
   const [weekStats, setWeekStats] = useState({ revenue: 0, expenses: 0, profit: 0, orderCount: 0 });
@@ -25,6 +25,13 @@ export default function AccountingScreen() {
   const [expenseCategory, setExpenseCategory] = useState<ExpenseCategory>('食材');
   const [expenseDate, setExpenseDate] = useState(selectedDate);
   const [showVoidConfirm, setShowVoidConfirm] = useState<string | null>(null);
+  const [partnerStats, setPartnerStats] = useState({ partnerOwesSelf: 0, selfOwesPartner: 0, netAmount: 0, totalSettled: 0, remaining: 0 });
+  const [partnerStatement, setPartnerStatement] = useState<{ date: string; items: { dish_name: string; quantity: number; subtotal: number; collector: string; dish_owner: string }[] }[]>([]);
+  const [settlementList, setSettlementList] = useState<Settlement[]>([]);
+  const [showSettlementForm, setShowSettlementForm] = useState(false);
+  const [settlementAmount, setSettlementAmount] = useState('');
+  const [settlementNote, setSettlementNote] = useState('');
+  const [showStatement, setShowStatement] = useState(false);
 
   const refresh = useCallback(() => {
     setTodayStats(getStats('today'));
@@ -33,6 +40,9 @@ export default function AccountingScreen() {
     setDayOrders(orders.getSettledByDate(selectedDate));
     setDayExpenses(expenses.getByDate(selectedDate));
     setTopDishes(orderItems.getTopDishes(selectedDate));
+    setPartnerStats(getPartnerStats());
+    setPartnerStatement(getPartnerStatement());
+    setSettlementList(settlements.getAll());
   }, [selectedDate]);
 
   useEffect(() => {
@@ -210,6 +220,14 @@ export default function AccountingScreen() {
         >
           支出 ({dayExpenses.length})
         </button>
+        <button
+          onClick={() => setActiveTab('partner')}
+          className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+            activeTab === 'partner' ? 'bg-white shadow text-[#ea580c]' : 'text-gray-500'
+          }`}
+        >
+          对账
+        </button>
       </div>
 
       {/* Income Tab */}
@@ -317,6 +335,184 @@ export default function AccountingScreen() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Partner Tab */}
+      {activeTab === 'partner' && (
+        <div>
+          {/* Summary Card */}
+          <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
+            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+              <div>
+                <span className="text-gray-500">饭店欠你</span>
+                <div className="font-bold text-[#ea580c]">¥{partnerStats.partnerOwesSelf.toFixed(0)}</div>
+              </div>
+              <div>
+                <span className="text-gray-500">你欠饭店</span>
+                <div className="font-bold text-[#dc2626]">¥{partnerStats.selfOwesPartner.toFixed(0)}</div>
+              </div>
+              <div>
+                <span className="text-gray-500">净额</span>
+                <div className={`font-bold ${partnerStats.netAmount >= 0 ? 'text-[#ea580c]' : 'text-[#dc2626]'}`}>
+                  ¥{partnerStats.netAmount.toFixed(0)}
+                </div>
+              </div>
+              <div>
+                <span className="text-gray-500">已核销</span>
+                <div className="font-bold text-[#16a34a]">¥{partnerStats.totalSettled.toFixed(0)}</div>
+              </div>
+            </div>
+            <div className="border-t border-gray-100 pt-3 text-center">
+              {partnerStats.remaining > 0 ? (
+                <span className="text-[#ea580c] font-bold">饭店还欠你 ¥{partnerStats.remaining.toFixed(0)}</span>
+              ) : partnerStats.remaining < 0 ? (
+                <span className="text-[#dc2626] font-bold">你还欠饭店 ¥{Math.abs(partnerStats.remaining).toFixed(0)}</span>
+              ) : (
+                <span className="text-[#16a34a] font-bold">已结清</span>
+              )}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => setShowSettlementForm(true)}
+              className="flex-1 bg-[#ea580c] text-white rounded-xl py-3 font-medium active:bg-orange-700"
+            >
+              核销结算
+            </button>
+            <button
+              onClick={() => setShowStatement(!showStatement)}
+              className="flex-1 border border-gray-300 rounded-xl py-3 font-medium active:bg-gray-100"
+            >
+              {showStatement ? '收起对账单' : '查看对账单'}
+            </button>
+          </div>
+
+          {/* Statement Detail */}
+          {showStatement && (
+            <div className="mb-4">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">对账明细</h3>
+              {partnerStatement.length === 0 ? (
+                <div className="text-center text-gray-400 py-6 bg-white rounded-xl border border-gray-100">
+                  暂无对账记录
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {partnerStatement.map(day => (
+                    <div key={day.date} className="bg-white rounded-xl p-3 border border-gray-100">
+                      <div className="text-sm font-medium text-gray-700 mb-2">
+                        {day.date.slice(5).replace('-', '月') + '日'}
+                      </div>
+                      <div className="space-y-1">
+                        {day.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-sm text-gray-600">
+                            <span>
+                              {item.dish_name} x{item.quantity}
+                            </span>
+                            <span>
+                              ¥{item.subtotal.toFixed(0)}
+                              <span className="text-xs text-gray-400 ml-1">
+                                ({item.collector === 'partner' ? '饭店代收' : '自己收'},{item.dish_owner === 'partner' ? '饭店的菜' : '自己的菜'})
+                              </span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Settlement History */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">核销记录</h3>
+            {settlementList.length === 0 ? (
+              <div className="text-center text-gray-400 py-6 bg-white rounded-xl border border-gray-100">
+                暂无核销记录
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {settlementList.map(s => (
+                  <div key={s.id} className="bg-white rounded-xl p-3 border border-gray-100">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="font-medium text-[#16a34a]">¥{s.amount.toFixed(0)}</span>
+                        {s.note && <span className="text-sm text-gray-500 ml-2">{s.note}</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">{s.date}</span>
+                        <button
+                          onClick={() => { settlements.delete(s.id); refresh(); }}
+                          className="text-xs text-gray-400 px-2 py-1 active:text-red-500"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Settlement Form Modal */}
+      {showSettlementForm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end max-w-[480px] mx-auto">
+          <div className="bg-white rounded-t-2xl w-full p-6 pb-8">
+            <h2 className="text-lg font-bold mb-4">核销结算</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-500 mb-1 block">金额</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={settlementAmount}
+                  onChange={e => setSettlementAmount(e.target.value)}
+                  placeholder="输入核销金额"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-3 text-lg"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-500 mb-1 block">备注</label>
+                <input
+                  type="text"
+                  value={settlementNote}
+                  onChange={e => setSettlementNote(e.target.value)}
+                  placeholder="例如：本周结算"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-3"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setShowSettlementForm(false); setSettlementAmount(''); setSettlementNote(''); }}
+                className="flex-1 border border-gray-300 rounded-xl py-3 font-medium active:bg-gray-100"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  const amount = parseFloat(settlementAmount);
+                  if (!amount || amount <= 0) return;
+                  settlements.create(amount, settlementNote.trim());
+                  setShowSettlementForm(false);
+                  setSettlementAmount('');
+                  setSettlementNote('');
+                  refresh();
+                }}
+                className="flex-1 bg-[#ea580c] text-white rounded-xl py-3 font-bold active:bg-orange-700"
+              >
+                保存
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
