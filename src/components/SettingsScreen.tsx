@@ -135,7 +135,6 @@ export default function SettingsScreen() {
             }}
             placeholder="输入 6 位密码"
             className="w-48 text-center text-2xl tracking-[0.3em] border border-gray-200 rounded-xl py-3 mb-3"
-            autoFocus
           />
           {authError && <p className="text-red-500 text-sm mb-3">{authError}</p>}
           <button
