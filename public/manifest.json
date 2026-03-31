@@ -1,6 +1,6 @@
 {
-  "name": "鑫烧烤 - 点单系统",
-  "short_name": "鑫烧烤",
+  "name": "阿鑫烧烤 - 点单系统",
+  "short_name": "阿鑫烧烤",
   "description": "烧烤店点单记账系统",
   "start_url": "/",
   "display": "standalone",

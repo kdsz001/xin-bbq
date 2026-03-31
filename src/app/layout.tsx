@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "鑫烧烤 - 点单系统",
+  title: "阿鑫烧烤 - 点单系统",
   description: "烧烤店点单记账系统",
   manifest: "/manifest.json",
   icons: {
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "鑫烧烤",
+    title: "阿鑫烧烤",
   },
 };
 

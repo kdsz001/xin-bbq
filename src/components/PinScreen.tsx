@@ -116,7 +116,7 @@ export default function PinScreen({ onUnlock }: PinScreenProps) {
     <div className="min-h-screen flex flex-col items-center justify-center px-8 bg-[#f8fafc]">
       <div className="text-center mb-8">
         <div className="text-4xl mb-3">🔥</div>
-        <h1 className="text-2xl font-bold text-gray-800">鑫烧烤</h1>
+        <h1 className="text-2xl font-bold text-gray-800">阿鑫烧烤</h1>
         <p className="text-gray-500 mt-1 text-sm">{subtitle}</p>
       </div>
 
