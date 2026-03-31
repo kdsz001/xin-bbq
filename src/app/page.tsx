@@ -26,21 +26,24 @@ export default function Home() {
   const [orderTable, setOrderTable] = useState<number | null>(null);
 
   useEffect(() => {
-    const setupDone = settings.isSetupDone();
-    const hasPin = settings.getPinHash();
+    async function init() {
+      const setupDone = await settings.isSetupDone();
+      const hasPin = await settings.getPinHash();
 
-    if (!setupDone) {
-      // First time use, show PIN setup
-      setLocked(true);
-    } else if (!hasPin) {
-      // Setup done but no PIN (user skipped)
-      setLocked(false);
-    } else if (isSessionValid()) {
-      setLocked(false);
-    } else {
-      setLocked(true);
+      if (!setupDone) {
+        // First time use, show PIN setup
+        setLocked(true);
+      } else if (!hasPin) {
+        // Setup done but no PIN (user skipped)
+        setLocked(false);
+      } else if (isSessionValid()) {
+        setLocked(false);
+      } else {
+        setLocked(true);
+      }
+      setLoading(false);
     }
-    setLoading(false);
+    init();
   }, []);
 
   if (loading) {

@@ -1,137 +1,106 @@
+import { supabase } from './supabase';
 import { Dish, Order, OrderItem, Expense } from './types';
 
 function generateId(): string {
   return crypto.randomUUID();
 }
 
-function getStore<T>(key: string): T[] {
-  if (typeof window === 'undefined') return [];
-  const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : [];
-}
-
-function setStore<T>(key: string, data: T[]): void {
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
-function getSetting(key: string): string | null {
-  if (typeof window === 'undefined') return null;
-  const settings = getStore<{ key: string; value: string }>('xin_settings');
-  const found = settings.find(s => s.key === key);
-  return found ? found.value : null;
-}
-
-function setSetting(key: string, value: string): void {
-  const settings = getStore<{ key: string; value: string }>('xin_settings');
-  const idx = settings.findIndex(s => s.key === key);
-  if (idx >= 0) {
-    settings[idx].value = value;
-  } else {
-    settings.push({ key, value });
-  }
-  setStore('xin_settings', settings);
-}
-
 // ==================== Settings ====================
 
 export const settings = {
-  getTableCount(): number {
-    return parseInt(getSetting('table_count') || '10', 10);
+  async get(key: string): Promise<string | null> {
+    const { data } = await supabase
+      .from('settings').select('value').eq('key', key).single();
+    return data?.value ?? null;
   },
-  setTableCount(count: number): void {
-    setSetting('table_count', String(count));
+  async set(key: string, value: string): Promise<void> {
+    const { data: existing } = await supabase
+      .from('settings').select('id').eq('key', key).single();
+    if (existing) {
+      await supabase.from('settings').update({ value }).eq('key', key);
+    } else {
+      await supabase.from('settings').insert({ key, value });
+    }
   },
-  getPinHash(): string | null {
-    return getSetting('pin_hash');
+  async getTableCount(): Promise<number> {
+    return parseInt(await this.get('table_count') || '10', 10);
   },
-  setPinHash(hash: string): void {
-    setSetting('pin_hash', hash);
+  async setTableCount(count: number): Promise<void> {
+    await this.set('table_count', String(count));
   },
-  isSetupDone(): boolean {
-    return getSetting('setup_done') === 'true';
+  async getPinHash(): Promise<string | null> {
+    return this.get('pin_hash');
   },
-  markSetupDone(): void {
-    setSetting('setup_done', 'true');
+  async setPinHash(hash: string): Promise<void> {
+    await this.set('pin_hash', hash);
+  },
+  async isSetupDone(): Promise<boolean> {
+    return (await this.get('setup_done')) === 'true';
+  },
+  async markSetupDone(): Promise<void> {
+    await this.set('setup_done', 'true');
   },
 };
 
 // ==================== Dishes ====================
 
 export const dishes = {
-  getAll(): Dish[] {
-    return getStore<Dish>('xin_dishes')
-      .filter(d => d.is_active)
-      .sort((a, b) => a.sort_order - b.sort_order);
+  async getAll(): Promise<Dish[]> {
+    const { data } = await supabase
+      .from('dishes').select('*').eq('is_active', true).order('sort_order');
+    return (data as Dish[]) || [];
   },
-  getAllIncludingInactive(): Dish[] {
-    return getStore<Dish>('xin_dishes').sort((a, b) => a.sort_order - b.sort_order);
+  async getAllIncludingInactive(): Promise<Dish[]> {
+    const { data } = await supabase
+      .from('dishes').select('*').order('sort_order');
+    return (data as Dish[]) || [];
   },
-  getById(id: string): Dish | undefined {
-    return getStore<Dish>('xin_dishes').find(d => d.id === id);
-  },
-  create(name: string, price: number, category: string = ''): Dish {
-    const all = getStore<Dish>('xin_dishes');
-    const maxOrder = all.length > 0 ? Math.max(...all.map(d => d.sort_order)) : 0;
+  async create(name: string, price: number, category: string = ''): Promise<Dish> {
+    const { data: maxRow } = await supabase
+      .from('dishes').select('sort_order').order('sort_order', { ascending: false }).limit(1).single();
+    const maxOrder = maxRow?.sort_order ?? 0;
     const dish: Dish = {
-      id: generateId(),
-      name,
-      price,
-      category,
-      is_active: true,
-      sort_order: maxOrder + 1,
+      id: generateId(), name, price, category,
+      is_active: true, sort_order: maxOrder + 1,
       created_at: new Date().toISOString(),
     };
-    all.push(dish);
-    setStore('xin_dishes', all);
+    await supabase.from('dishes').insert(dish);
     return dish;
   },
-  update(id: string, updates: Partial<Pick<Dish, 'name' | 'price' | 'category' | 'is_active' | 'sort_order'>>): void {
-    const all = getStore<Dish>('xin_dishes');
-    const idx = all.findIndex(d => d.id === id);
-    if (idx >= 0) {
-      all[idx] = { ...all[idx], ...updates };
-      setStore('xin_dishes', all);
-    }
+  async update(id: string, updates: Partial<Pick<Dish, 'name' | 'price' | 'category' | 'is_active' | 'sort_order'>>): Promise<void> {
+    await supabase.from('dishes').update(updates).eq('id', id);
   },
-  delete(id: string): void {
-    const all = getStore<Dish>('xin_dishes');
-    setStore('xin_dishes', all.filter(d => d.id !== id));
+  async delete(id: string): Promise<void> {
+    await supabase.from('dishes').delete().eq('id', id);
   },
 };
 
 // ==================== Orders ====================
 
 export const orders = {
-  getAll(): Order[] {
-    return getStore<Order>('xin_orders');
+  async getOpenByTable(tableNumber: number): Promise<Order | null> {
+    const { data } = await supabase
+      .from('orders').select('*')
+      .eq('table_number', tableNumber).eq('status', 'open').single();
+    return data as Order | null;
   },
-  getOpen(): Order[] {
-    return getStore<Order>('xin_orders').filter(o => o.status === 'open');
+  async getSettledByDate(date: string): Promise<Order[]> {
+    const { data } = await supabase
+      .from('orders').select('*')
+      .eq('status', 'settled')
+      .gte('settled_at', `${date}T00:00:00`)
+      .lt('settled_at', `${date}T23:59:59.999`);
+    return (data as Order[]) || [];
   },
-  getOpenByTable(tableNumber: number): Order | undefined {
-    return getStore<Order>('xin_orders').find(
-      o => o.table_number === tableNumber && o.status === 'open'
-    );
+  async getSettledInRange(startDate: string, endDate: string): Promise<Order[]> {
+    const { data } = await supabase
+      .from('orders').select('*')
+      .eq('status', 'settled')
+      .gte('settled_at', `${startDate}T00:00:00`)
+      .lte('settled_at', `${endDate}T23:59:59.999`);
+    return (data as Order[]) || [];
   },
-  getSettledToday(): Order[] {
-    const today = new Date().toISOString().slice(0, 10);
-    return getStore<Order>('xin_orders').filter(
-      o => o.status === 'settled' && o.settled_at && o.settled_at.slice(0, 10) === today
-    );
-  },
-  getSettledByDate(date: string): Order[] {
-    return getStore<Order>('xin_orders').filter(
-      o => o.status === 'settled' && o.settled_at && o.settled_at.slice(0, 10) === date
-    );
-  },
-  getSettledInRange(startDate: string, endDate: string): Order[] {
-    return getStore<Order>('xin_orders').filter(
-      o => o.status === 'settled' && o.settled_at &&
-        o.settled_at.slice(0, 10) >= startDate && o.settled_at.slice(0, 10) <= endDate
-    );
-  },
-  create(tableNumber: number): Order {
-    const all = getStore<Order>('xin_orders');
+  async create(tableNumber: number): Promise<Order> {
     const order: Order = {
       id: generateId(),
       table_number: tableNumber,
@@ -140,93 +109,78 @@ export const orders = {
       settled_at: null,
       total: 0,
     };
-    all.push(order);
-    setStore('xin_orders', all);
+    await supabase.from('orders').insert(order);
     return order;
   },
-  settle(id: string): void {
-    const all = getStore<Order>('xin_orders');
-    const idx = all.findIndex(o => o.id === id);
-    if (idx >= 0) {
-      const items = orderItems.getByOrderId(id);
-      const total = items.reduce((sum, item) => sum + item.subtotal, 0);
-      all[idx].status = 'settled';
-      all[idx].settled_at = new Date().toISOString();
-      all[idx].total = total;
-      setStore('xin_orders', all);
-    }
+  async settle(id: string): Promise<void> {
+    const items = await orderItems.getByOrderId(id);
+    const total = items.reduce((sum, item) => sum + item.subtotal, 0);
+    await supabase.from('orders').update({
+      status: 'settled', settled_at: new Date().toISOString(), total,
+    }).eq('id', id);
   },
-  void(id: string): void {
-    const all = getStore<Order>('xin_orders');
-    const idx = all.findIndex(o => o.id === id);
-    if (idx >= 0) {
-      all[idx].status = 'voided';
-      setStore('xin_orders', all);
-    }
+  async void(id: string): Promise<void> {
+    await supabase.from('orders').update({ status: 'voided' }).eq('id', id);
   },
-  updateTotal(id: string): void {
-    const all = getStore<Order>('xin_orders');
-    const idx = all.findIndex(o => o.id === id);
-    if (idx >= 0) {
-      const items = orderItems.getByOrderId(id);
-      all[idx].total = items.reduce((sum, item) => sum + item.subtotal, 0);
-      setStore('xin_orders', all);
-    }
+  async updateTotal(id: string): Promise<void> {
+    const items = await orderItems.getByOrderId(id);
+    const total = items.reduce((sum, item) => sum + item.subtotal, 0);
+    await supabase.from('orders').update({ total }).eq('id', id);
   },
 };
 
 // ==================== Order Items ====================
 
 export const orderItems = {
-  getByOrderId(orderId: string): OrderItem[] {
-    return getStore<OrderItem>('xin_order_items').filter(i => i.order_id === orderId);
+  async getByOrderId(orderId: string): Promise<OrderItem[]> {
+    const { data } = await supabase
+      .from('order_items').select('*').eq('order_id', orderId);
+    return (data as OrderItem[]) || [];
   },
-  addItem(orderId: string, dish: Dish, quantity: number = 1): OrderItem {
-    const all = getStore<OrderItem>('xin_order_items');
-    const existing = all.find(i => i.order_id === orderId && i.dish_id === dish.id);
+  async addItem(orderId: string, dish: Dish, quantity: number = 1): Promise<void> {
+    const { data: existing } = await supabase
+      .from('order_items').select('*')
+      .eq('order_id', orderId).eq('dish_id', dish.id).single();
     if (existing) {
-      existing.quantity += quantity;
-      existing.subtotal = existing.quantity * existing.price;
-      setStore('xin_order_items', all);
-      orders.updateTotal(orderId);
-      return existing;
+      const newQty = existing.quantity + quantity;
+      await supabase.from('order_items').update({
+        quantity: newQty, subtotal: newQty * existing.price,
+      }).eq('id', existing.id);
+    } else {
+      await supabase.from('order_items').insert({
+        id: generateId(), order_id: orderId, dish_id: dish.id,
+        dish_name: dish.name, price: dish.price, quantity,
+        subtotal: dish.price * quantity,
+      });
     }
-    const item: OrderItem = {
-      id: generateId(),
-      order_id: orderId,
-      dish_id: dish.id,
-      dish_name: dish.name,
-      price: dish.price,
-      quantity,
-      subtotal: dish.price * quantity,
-    };
-    all.push(item);
-    setStore('xin_order_items', all);
-    orders.updateTotal(orderId);
-    return item;
+    await orders.updateTotal(orderId);
   },
-  removeItem(orderId: string, dishId: string, quantity: number = 1): void {
-    const all = getStore<OrderItem>('xin_order_items');
-    const idx = all.findIndex(i => i.order_id === orderId && i.dish_id === dishId);
-    if (idx >= 0) {
-      all[idx].quantity -= quantity;
-      if (all[idx].quantity <= 0) {
-        all.splice(idx, 1);
+  async removeItem(orderId: string, dishId: string, quantity: number = 1): Promise<void> {
+    const { data: existing } = await supabase
+      .from('order_items').select('*')
+      .eq('order_id', orderId).eq('dish_id', dishId).single();
+    if (existing) {
+      const newQty = existing.quantity - quantity;
+      if (newQty <= 0) {
+        await supabase.from('order_items').delete().eq('id', existing.id);
       } else {
-        all[idx].subtotal = all[idx].quantity * all[idx].price;
+        await supabase.from('order_items').update({
+          quantity: newQty, subtotal: newQty * existing.price,
+        }).eq('id', existing.id);
       }
-      setStore('xin_order_items', all);
-      orders.updateTotal(orderId);
+      await orders.updateTotal(orderId);
     }
   },
-  getTopDishes(date: string, limit: number = 10): { dish_name: string; total_quantity: number; total_revenue: number }[] {
-    const settledOrders = orders.getSettledByDate(date);
-    const allItems = getStore<OrderItem>('xin_order_items');
-    const orderIds = new Set(settledOrders.map(o => o.id));
-    const itemsForDate = allItems.filter(i => orderIds.has(i.order_id));
+  async getTopDishes(date: string, limit: number = 10): Promise<{ dish_name: string; total_quantity: number; total_revenue: number }[]> {
+    const settledOrders = await orders.getSettledByDate(date);
+    if (settledOrders.length === 0) return [];
+    const orderIds = settledOrders.map(o => o.id);
+    const { data: items } = await supabase
+      .from('order_items').select('*').in('order_id', orderIds);
+    if (!items) return [];
 
     const map = new Map<string, { dish_name: string; total_quantity: number; total_revenue: number }>();
-    for (const item of itemsForDate) {
+    for (const item of items) {
       const existing = map.get(item.dish_name);
       if (existing) {
         existing.total_quantity += item.quantity;
@@ -248,42 +202,30 @@ export const orderItems = {
 // ==================== Expenses ====================
 
 export const expenses = {
-  getAll(): Expense[] {
-    return getStore<Expense>('xin_expenses');
+  async getByDate(date: string): Promise<Expense[]> {
+    const { data } = await supabase
+      .from('expenses').select('*').eq('date', date);
+    return (data as Expense[]) || [];
   },
-  getByDate(date: string): Expense[] {
-    return getStore<Expense>('xin_expenses').filter(e => e.date === date);
+  async getInRange(startDate: string, endDate: string): Promise<Expense[]> {
+    const { data } = await supabase
+      .from('expenses').select('*').gte('date', startDate).lte('date', endDate);
+    return (data as Expense[]) || [];
   },
-  getInRange(startDate: string, endDate: string): Expense[] {
-    return getStore<Expense>('xin_expenses').filter(
-      e => e.date >= startDate && e.date <= endDate
-    );
-  },
-  create(amount: number, description: string, category: Expense['category'], date?: string): Expense {
-    const all = getStore<Expense>('xin_expenses');
+  async create(amount: number, description: string, category: Expense['category'], date?: string): Promise<Expense> {
     const expense: Expense = {
-      id: generateId(),
-      amount,
-      description,
-      category,
+      id: generateId(), amount, description, category,
       date: date || new Date().toISOString().slice(0, 10),
       created_at: new Date().toISOString(),
     };
-    all.push(expense);
-    setStore('xin_expenses', all);
+    await supabase.from('expenses').insert(expense);
     return expense;
   },
-  update(id: string, updates: Partial<Pick<Expense, 'amount' | 'description' | 'category' | 'date'>>): void {
-    const all = getStore<Expense>('xin_expenses');
-    const idx = all.findIndex(e => e.id === id);
-    if (idx >= 0) {
-      all[idx] = { ...all[idx], ...updates };
-      setStore('xin_expenses', all);
-    }
+  async update(id: string, updates: Partial<Pick<Expense, 'amount' | 'description' | 'category' | 'date'>>): Promise<void> {
+    await supabase.from('expenses').update(updates).eq('id', id);
   },
-  delete(id: string): void {
-    const all = getStore<Expense>('xin_expenses');
-    setStore('xin_expenses', all.filter(e => e.id !== id));
+  async delete(id: string): Promise<void> {
+    await supabase.from('expenses').delete().eq('id', id);
   },
 };
 
@@ -293,39 +235,29 @@ export function getDateRange(period: 'today' | 'week' | 'month' | 'all'): { star
   const today = new Date();
   const end = today.toISOString().slice(0, 10);
   let start: string;
-
   switch (period) {
-    case 'today':
-      start = end;
-      break;
+    case 'today': start = end; break;
     case 'week': {
-      const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() - today.getDay());
-      start = weekStart.toISOString().slice(0, 10);
+      const d = new Date(today);
+      d.setDate(today.getDate() - today.getDay());
+      start = d.toISOString().slice(0, 10);
       break;
     }
     case 'month':
       start = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
       break;
-    case 'all':
-      start = '2000-01-01';
-      break;
+    case 'all': start = '2000-01-01'; break;
   }
   return { start, end };
 }
 
-export function getStats(period: 'today' | 'week' | 'month' | 'all') {
+export async function getStats(period: 'today' | 'week' | 'month' | 'all') {
   const { start, end } = getDateRange(period);
-  const settledOrders = orders.getSettledInRange(start, end);
-  const expenseList = expenses.getInRange(start, end);
-
+  const [settledOrders, expenseList] = await Promise.all([
+    orders.getSettledInRange(start, end),
+    expenses.getInRange(start, end),
+  ]);
   const revenue = settledOrders.reduce((sum, o) => sum + o.total, 0);
   const totalExpenses = expenseList.reduce((sum, e) => sum + e.amount, 0);
-
-  return {
-    revenue,
-    expenses: totalExpenses,
-    profit: revenue - totalExpenses,
-    orderCount: settledOrders.length,
-  };
+  return { revenue, expenses: totalExpenses, profit: revenue - totalExpenses, orderCount: settledOrders.length };
 }

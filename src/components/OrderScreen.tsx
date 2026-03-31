@@ -16,16 +16,16 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
   const [total, setTotal] = useState(0);
   const [showSettleConfirm, setShowSettleConfirm] = useState(false);
 
-  const refresh = useCallback(() => {
-    setMenuItems(dishes.getAll());
+  const refresh = useCallback(async () => {
+    setMenuItems(await dishes.getAll());
 
-    let order = orders.getOpenByTable(tableNumber);
+    let order = await orders.getOpenByTable(tableNumber);
     if (!order) {
-      order = orders.create(tableNumber);
+      order = await orders.create(tableNumber);
     }
     setOrderId(order.id);
 
-    const items = orderItems.getByOrderId(order.id);
+    const items = await orderItems.getByOrderId(order.id);
     setCurrentItems(items);
     setTotal(items.reduce((sum, item) => sum + item.subtotal, 0));
   }, [tableNumber]);
@@ -34,14 +34,14 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
     refresh();
   }, [refresh]);
 
-  const addItem = (dish: Dish) => {
-    orderItems.addItem(orderId, dish);
-    refresh();
+  const addItem = async (dish: Dish) => {
+    await orderItems.addItem(orderId, dish);
+    await refresh();
   };
 
-  const removeItem = (dishId: string) => {
-    orderItems.removeItem(orderId, dishId);
-    refresh();
+  const removeItem = async (dishId: string) => {
+    await orderItems.removeItem(orderId, dishId);
+    await refresh();
   };
 
   const getQuantity = (dishId: string): number => {
@@ -49,8 +49,8 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
     return item ? item.quantity : 0;
   };
 
-  const handleSettle = () => {
-    orders.settle(orderId);
+  const handleSettle = async () => {
+    await orders.settle(orderId);
     onBack();
   };
 
