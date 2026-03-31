@@ -7,6 +7,12 @@ import { Dish } from '@/lib/types';
 export default function SettingsScreen() {
   const [tableCount, setTableCount] = useState(10);
   const [menuItems, setMenuItems] = useState<Dish[]>([]);
+  const [hasPin, setHasPin] = useState(false);
+  const [showPinSetup, setShowPinSetup] = useState(false);
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [pinStep, setPinStep] = useState<'new' | 'confirm'>('new');
+  const [pinError, setPinError] = useState('');
   const [showDishForm, setShowDishForm] = useState(false);
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
   const [dishName, setDishName] = useState('');
@@ -17,6 +23,7 @@ export default function SettingsScreen() {
   const refresh = useCallback(() => {
     setTableCount(settings.getTableCount());
     setMenuItems(dishes.getAllIncludingInactive());
+    setHasPin(!!settings.getPinHash());
   }, []);
 
   useEffect(() => {
@@ -27,6 +34,36 @@ export default function SettingsScreen() {
     const clamped = Math.max(1, Math.min(20, count));
     setTableCount(clamped);
     settings.setTableCount(clamped);
+  };
+
+  const handlePinSave = () => {
+    if (pinStep === 'new') {
+      if (newPin.length !== 4) { setPinError('请输入 4 位数字'); return; }
+      setPinStep('confirm');
+      setPinError('');
+      return;
+    }
+    if (confirmPin !== newPin) {
+      setPinError('两次输入不一致');
+      setConfirmPin('');
+      return;
+    }
+    settings.setPinHash(newPin);
+    setHasPin(true);
+    setShowPinSetup(false);
+    setNewPin('');
+    setConfirmPin('');
+    setPinStep('new');
+    setPinError('');
+  };
+
+  const handleRemovePin = () => {
+    settings.setPinHash('');
+    // Also clear the setting so getPinHash returns null
+    const all = JSON.parse(localStorage.getItem('xin_settings') || '[]');
+    const filtered = all.filter((s: { key: string }) => s.key !== 'pin_hash');
+    localStorage.setItem('xin_settings', JSON.stringify(filtered));
+    setHasPin(false);
   };
 
   const handleSaveDish = () => {
@@ -96,6 +133,80 @@ export default function SettingsScreen() {
           </button>
         </div>
       </div>
+
+      {/* PIN Management */}
+      <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="text-sm text-gray-500">记账密码 (PIN)</div>
+            <div className="text-sm mt-1">
+              {hasPin ? (
+                <span className="text-green-600">已设置 ✓</span>
+              ) : (
+                <span className="text-gray-400">未设置</span>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setShowPinSetup(true); setPinStep('new'); setNewPin(''); setConfirmPin(''); setPinError(''); }}
+              className="text-sm bg-[#ea580c] text-white px-4 py-2 rounded-lg font-medium active:bg-orange-700"
+            >
+              {hasPin ? '修改' : '设置'}
+            </button>
+            {hasPin && (
+              <button
+                onClick={handleRemovePin}
+                className="text-sm text-gray-400 px-3 py-2 rounded-lg border border-gray-200 active:bg-gray-100"
+              >
+                移除
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* PIN Setup Modal */}
+      {showPinSetup && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center max-w-[480px] mx-auto px-6">
+          <div className="bg-white rounded-2xl w-full p-6 text-center">
+            <h2 className="text-lg font-bold mb-2">
+              {pinStep === 'new' ? '设置新 PIN 码' : '再次输入确认'}
+            </h2>
+            <p className="text-gray-500 text-sm mb-4">
+              {pinStep === 'new' ? '输入 4 位数字密码' : '请再输入一次确认'}
+            </p>
+            <input
+              type="tel"
+              maxLength={4}
+              value={pinStep === 'new' ? newPin : confirmPin}
+              onChange={e => {
+                const val = e.target.value.replace(/\D/g, '');
+                if (pinStep === 'new') setNewPin(val); else setConfirmPin(val);
+                setPinError('');
+              }}
+              placeholder="····"
+              className="w-40 text-center text-2xl tracking-[0.5em] border border-gray-200 rounded-xl py-3 mb-3"
+              autoFocus
+            />
+            {pinError && <p className="text-red-500 text-sm mb-3">{pinError}</p>}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowPinSetup(false); setPinStep('new'); setNewPin(''); setConfirmPin(''); }}
+                className="flex-1 border border-gray-300 rounded-xl py-3 font-medium active:bg-gray-100"
+              >
+                取消
+              </button>
+              <button
+                onClick={handlePinSave}
+                className="flex-1 bg-[#ea580c] text-white rounded-xl py-3 font-bold active:bg-orange-700"
+              >
+                {pinStep === 'new' ? '下一步' : '确认设置'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Menu Management */}
       <div className="mb-4">
