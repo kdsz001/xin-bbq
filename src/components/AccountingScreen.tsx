@@ -463,24 +463,9 @@ export default function AccountingScreen() {
 
       {/* Settlement Form Modal */}
       {showSettlementForm && (
-        <div className="fixed inset-0 bg-white z-50 max-w-[480px] mx-auto flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <button onClick={() => { setShowSettlementForm(false); setSettlementAmount(''); setSettlementNote(''); }} className="text-gray-500 text-sm active:text-gray-700">取消</button>
-            <h2 className="text-lg font-bold">核销结算</h2>
-            <button
-              onClick={() => {
-                const amount = parseFloat(settlementAmount);
-                if (!amount || amount <= 0) return;
-                settlements.create(amount, settlementNote.trim());
-                setShowSettlementForm(false);
-                setSettlementAmount('');
-                setSettlementNote('');
-                refresh();
-              }}
-              className="text-[#ea580c] font-bold text-sm active:text-orange-700"
-            >保存</button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-6">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center max-w-[480px] mx-auto px-6">
+          <div className="bg-white rounded-2xl w-full p-6">
+            <h2 className="text-lg font-bold mb-4">核销结算</h2>
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-gray-500 mb-1 block">金额</label>
@@ -503,6 +488,28 @@ export default function AccountingScreen() {
                   className="w-full border border-gray-200 rounded-lg px-3 py-3"
                 />
               </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setShowSettlementForm(false); setSettlementAmount(''); setSettlementNote(''); }}
+                className="flex-1 border border-gray-300 rounded-xl py-3 font-medium active:bg-gray-100"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  const amount = parseFloat(settlementAmount);
+                  if (!amount || amount <= 0) return;
+                  settlements.create(amount, settlementNote.trim());
+                  setShowSettlementForm(false);
+                  setSettlementAmount('');
+                  setSettlementNote('');
+                  refresh();
+                }}
+                className="flex-1 bg-[#ea580c] text-white rounded-xl py-3 font-bold active:bg-orange-700"
+              >
+                保存
+              </button>
             </div>
           </div>
         </div>
