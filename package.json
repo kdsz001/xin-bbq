@@ -1,0 +1,27 @@
+{
+  "name": "xin-bbq",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@serwist/next": "^9.5.7",
+    "next": "^16.2.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "serwist": "^9.5.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/serviceworker": "^0.0.194",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
