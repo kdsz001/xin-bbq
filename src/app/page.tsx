@@ -8,7 +8,7 @@ import AccountingScreen from '@/components/AccountingScreen';
 import SettingsScreen from '@/components/SettingsScreen';
 import PinScreen from '@/components/PinScreen';
 import OnlineStatus from '@/components/OnlineStatus';
-import { settings } from '@/lib/store';
+import { settings, initialSync } from '@/lib/store';
 
 type Tab = 'tables' | 'accounting' | 'settings';
 
@@ -27,8 +27,9 @@ export default function Home() {
 
   useEffect(() => {
     async function init() {
-      const setupDone = await settings.isSetupDone();
-      const hasPin = await settings.getPinHash();
+      await initialSync();
+      const setupDone = settings.isSetupDone();
+      const hasPin = settings.getPinHash();
 
       if (!setupDone) {
         // First time use, show PIN setup

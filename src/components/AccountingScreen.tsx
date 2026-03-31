@@ -22,40 +22,40 @@ export default function AccountingScreen() {
   const [expenseDate, setExpenseDate] = useState(selectedDate);
   const [showVoidConfirm, setShowVoidConfirm] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    setTodayStats(await getStats('today'));
-    setWeekStats(await getStats('week'));
-    setMonthStats(await getStats('month'));
-    setDayOrders(await orders.getSettledByDate(selectedDate));
-    setDayExpenses(await expenses.getByDate(selectedDate));
-    setTopDishes(await orderItems.getTopDishes(selectedDate));
+  const refresh = useCallback(() => {
+    setTodayStats(getStats('today'));
+    setWeekStats(getStats('week'));
+    setMonthStats(getStats('month'));
+    setDayOrders(orders.getSettledByDate(selectedDate));
+    setDayExpenses(expenses.getByDate(selectedDate));
+    setTopDishes(orderItems.getTopDishes(selectedDate));
   }, [selectedDate]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const handleAddExpense = async () => {
+  const handleAddExpense = () => {
     const amount = parseFloat(expenseAmount);
     if (!amount || amount <= 0 || !expenseDesc.trim()) return;
 
     if (editingExpense) {
-      await expenses.update(editingExpense.id, {
+      expenses.update(editingExpense.id, {
         amount,
         description: expenseDesc.trim(),
         category: expenseCategory,
         date: expenseDate,
       });
     } else {
-      await expenses.create(amount, expenseDesc.trim(), expenseCategory, expenseDate);
+      expenses.create(amount, expenseDesc.trim(), expenseCategory, expenseDate);
     }
     resetExpenseForm();
-    await refresh();
+    refresh();
   };
 
-  const handleDeleteExpense = async (id: string) => {
-    await expenses.delete(id);
-    await refresh();
+  const handleDeleteExpense = (id: string) => {
+    expenses.delete(id);
+    refresh();
   };
 
   const handleEditExpense = (expense: Expense) => {
@@ -67,10 +67,10 @@ export default function AccountingScreen() {
     setShowExpenseForm(true);
   };
 
-  const handleVoidOrder = async (id: string) => {
-    await orders.void(id);
+  const handleVoidOrder = (id: string) => {
+    orders.void(id);
     setShowVoidConfirm(null);
-    await refresh();
+    refresh();
   };
 
   const resetExpenseForm = () => {

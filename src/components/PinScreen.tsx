@@ -19,11 +19,8 @@ export default function PinScreen({ onUnlock }: PinScreenProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    async function init() {
-      const hasPin = await settings.getPinHash();
-      setIsSetup(!hasPin);
-    }
-    init();
+    const hasPin = settings.getPinHash();
+    setIsSetup(!hasPin);
   }, []);
 
   useEffect(() => {
@@ -59,7 +56,7 @@ export default function PinScreen({ onUnlock }: PinScreenProps) {
     setError('');
   };
 
-  const handlePinComplete = async (completedPin: string) => {
+  const handlePinComplete = (completedPin: string) => {
     if (isSetup) {
       if (step === 'enter') {
         setConfirmPin(completedPin);
@@ -67,8 +64,8 @@ export default function PinScreen({ onUnlock }: PinScreenProps) {
         setStep('confirm');
       } else {
         if (completedPin === confirmPin) {
-          await settings.setPinHash(completedPin);
-          await settings.markSetupDone();
+          settings.setPinHash(completedPin);
+          settings.markSetupDone();
           saveSession();
           onUnlock();
         } else {
@@ -79,7 +76,7 @@ export default function PinScreen({ onUnlock }: PinScreenProps) {
         }
       }
     } else {
-      const storedPin = await settings.getPinHash();
+      const storedPin = settings.getPinHash();
       if (completedPin === storedPin) {
         setAttempts(0);
         saveSession();
@@ -199,8 +196,8 @@ export default function PinScreen({ onUnlock }: PinScreenProps) {
       {/* Skip setup for first time */}
       {isSetup && (
         <button
-          onClick={async () => {
-            await settings.markSetupDone();
+          onClick={() => {
+            settings.markSetupDone();
             onUnlock();
           }}
           className="mt-6 text-sm text-gray-400 active:text-gray-600"

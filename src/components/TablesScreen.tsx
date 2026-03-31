@@ -18,16 +18,16 @@ export default function TablesScreen({ onOpenTable }: TablesScreenProps) {
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [todayRevenue, setTodayRevenue] = useState(0);
 
-  const refresh = useCallback(async () => {
-    const count = await settings.getTableCount();
+  const refresh = useCallback(() => {
+    const count = settings.getTableCount();
     const tableInfos: TableInfo[] = [];
     for (let i = 1; i <= count; i++) {
-      const order = await orders.getOpenByTable(i);
-      const items = order ? await orderItems.getByOrderId(order.id) : [];
-      tableInfos.push({ number: i, order: order, itemCount: items.length });
+      const order = orders.getOpenByTable(i);
+      const items = order ? orderItems.getByOrderId(order.id) : [];
+      tableInfos.push({ number: i, order: order ?? null, itemCount: items.length });
     }
     setTables(tableInfos);
-    const stats = await getStats('today');
+    const stats = getStats('today');
     setTodayRevenue(stats.revenue);
   }, []);
 

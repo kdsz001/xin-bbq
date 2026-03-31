@@ -14,42 +14,42 @@ export default function SettingsScreen() {
   const [dishCategory, setDishCategory] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    setTableCount(await settings.getTableCount());
-    setMenuItems(await dishes.getAllIncludingInactive());
+  const refresh = useCallback(() => {
+    setTableCount(settings.getTableCount());
+    setMenuItems(dishes.getAllIncludingInactive());
   }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const handleTableCountChange = async (count: number) => {
+  const handleTableCountChange = (count: number) => {
     const clamped = Math.max(1, Math.min(20, count));
     setTableCount(clamped);
-    await settings.setTableCount(clamped);
+    settings.setTableCount(clamped);
   };
 
-  const handleSaveDish = async () => {
+  const handleSaveDish = () => {
     const price = parseFloat(dishPrice);
     if (!dishName.trim() || !price || price <= 0) return;
 
     if (editingDish) {
-      await dishes.update(editingDish.id, {
+      dishes.update(editingDish.id, {
         name: dishName.trim(),
         price,
         category: dishCategory.trim(),
       });
     } else {
-      await dishes.create(dishName.trim(), price, dishCategory.trim());
+      dishes.create(dishName.trim(), price, dishCategory.trim());
     }
     resetDishForm();
-    await refresh();
+    refresh();
   };
 
-  const handleDeleteDish = async (id: string) => {
-    await dishes.delete(id);
+  const handleDeleteDish = (id: string) => {
+    dishes.delete(id);
     setShowDeleteConfirm(null);
-    await refresh();
+    refresh();
   };
 
   const handleEditDish = (dish: Dish) => {
@@ -60,9 +60,9 @@ export default function SettingsScreen() {
     setShowDishForm(true);
   };
 
-  const handleToggleDish = async (id: string, currentActive: boolean) => {
-    await dishes.update(id, { is_active: !currentActive });
-    await refresh();
+  const handleToggleDish = (id: string, currentActive: boolean) => {
+    dishes.update(id, { is_active: !currentActive });
+    refresh();
   };
 
   const resetDishForm = () => {
