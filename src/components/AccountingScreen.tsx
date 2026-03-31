@@ -33,6 +33,7 @@ export default function AccountingScreen() {
   const [settlementAmount, setSettlementAmount] = useState('');
   const [settlementNote, setSettlementNote] = useState('');
   const [showStatement, setShowStatement] = useState(false);
+  const [viewOrderId, setViewOrderId] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     setTodayStats(getStats('today'));
@@ -240,8 +241,12 @@ export default function AccountingScreen() {
             </div>
           ) : (
             <div className="space-y-2 mb-6">
-              {dayOrders.map(order => (
-                <div key={order.id} className="bg-white rounded-xl p-3 border border-gray-100">
+              {[...dayOrders].sort((a, b) => (b.settled_at || '').localeCompare(a.settled_at || '')).map(order => (
+                <div
+                  key={order.id}
+                  onClick={() => setViewOrderId(order.id)}
+                  className="bg-white rounded-xl p-3 border border-gray-100 active:bg-gray-50"
+                >
                   <div className="flex justify-between items-center">
                     <div>
                       <span className="font-medium">{order.table_number} 号桌</span>
@@ -251,12 +256,9 @@ export default function AccountingScreen() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-[#ea580c]">¥{order.total.toFixed(0)}</span>
-                      <button
-                        onClick={() => setShowVoidConfirm(order.id)}
-                        className="text-xs text-gray-400 px-2 py-1 active:text-red-500"
-                      >
-                        作废
-                      </button>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-gray-300">
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
                     </div>
                   </div>
                 </div>
@@ -645,6 +647,57 @@ export default function AccountingScreen() {
           </div>
         </div>
       )}
+
+      {/* Order Detail Modal */}
+      {viewOrderId && (() => {
+        const order = dayOrders.find(o => o.id === viewOrderId);
+        if (!order) return null;
+        const items = orderItems.getByOrderId(order.id);
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center max-w-[480px] mx-auto px-6">
+            <div className="bg-white rounded-2xl w-full p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold">{order.table_number} 号桌账单</h2>
+                <span className="text-xs text-gray-400">
+                  {order.settled_at ? new Date(order.settled_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : ''}
+                </span>
+              </div>
+              <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+                {items.map(item => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <span>
+                      {item.dish_name} x{item.quantity}
+                      {item.dish_owner === 'partner' && <span className="text-xs text-blue-500 ml-1">(饭店)</span>}
+                    </span>
+                    <span className="font-medium">¥{item.subtotal.toFixed(0)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-gray-200 pt-3 mb-2 flex justify-between">
+                <span className="font-bold">合计</span>
+                <span className="font-bold text-[#ea580c]">¥{order.total.toFixed(0)}</span>
+              </div>
+              <div className="text-xs text-gray-400 mb-4">
+                收款方：{order.payment_collector === 'partner' ? '饭店代收' : '自己收'}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setViewOrderId(null)}
+                  className="flex-1 border border-gray-300 rounded-xl py-3 font-medium active:bg-gray-100"
+                >
+                  关闭
+                </button>
+                <button
+                  onClick={() => { setViewOrderId(null); setShowVoidConfirm(order.id); }}
+                  className="flex-1 bg-[#dc2626] text-white rounded-xl py-3 font-medium active:bg-red-700"
+                >
+                  作废
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Void Confirm Modal */}
       {showVoidConfirm && (
