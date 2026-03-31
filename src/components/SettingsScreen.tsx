@@ -328,7 +328,7 @@ export default function SettingsScreen() {
       {/* Dish Form Modal */}
       {showDishForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end max-w-[480px] mx-auto">
-          <div className="bg-white rounded-t-2xl w-full p-6 pb-8">
+          <div className="bg-white rounded-t-2xl w-full p-6 max-h-[85vh] overflow-y-auto" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}>
             <h2 className="text-lg font-bold mb-4">
               {editingDish ? '编辑菜品' : '添加菜品'}
             </h2>
