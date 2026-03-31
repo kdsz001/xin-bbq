@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { orders, orderItems, expenses, getStats } from '@/lib/store';
+import { orders, orderItems, expenses, getStats, settings } from '@/lib/store';
 import { Order, Expense, EXPENSE_CATEGORIES, ExpenseCategory } from '@/lib/types';
 
 export default function AccountingScreen() {
+  const [locked, setLocked] = useState(true);
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState('');
   const [activeTab, setActiveTab] = useState<'income' | 'expense'>('income');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [todayStats, setTodayStats] = useState({ revenue: 0, expenses: 0, profit: 0, orderCount: 0 });
@@ -32,8 +35,26 @@ export default function AccountingScreen() {
   }, [selectedDate]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    // If no PIN is set, skip lock
+    const hasPin = settings.getPinHash();
+    if (!hasPin) setLocked(false);
+    else setLocked(true);
+  }, []);
+
+  useEffect(() => {
+    if (!locked) refresh();
+  }, [refresh, locked]);
+
+  const handlePinSubmit = () => {
+    const stored = settings.getPinHash();
+    if (pin === stored) {
+      setLocked(false);
+      setPinError('');
+    } else {
+      setPinError('密码错误');
+      setPin('');
+    }
+  };
 
   const handleAddExpense = () => {
     const amount = parseFloat(expenseAmount);
@@ -83,6 +104,35 @@ export default function AccountingScreen() {
   };
 
   const isToday = selectedDate === new Date().toISOString().slice(0, 10);
+
+  if (locked) {
+    return (
+      <div className="pb-20 pt-4 px-4">
+        <h1 className="text-xl font-bold mb-4">记账</h1>
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="text-4xl mb-4">🔒</div>
+          <p className="text-gray-500 mb-6">财务数据需要输入密码查看</p>
+          <input
+            type="tel"
+            maxLength={4}
+            value={pin}
+            onChange={e => { setPin(e.target.value.replace(/\D/g, '')); setPinError(''); }}
+            onKeyDown={e => { if (e.key === 'Enter') handlePinSubmit(); }}
+            placeholder="输入 4 位 PIN 码"
+            className="w-48 text-center text-2xl tracking-[0.5em] border border-gray-200 rounded-xl py-3 mb-3"
+            autoFocus
+          />
+          {pinError && <p className="text-red-500 text-sm mb-3">{pinError}</p>}
+          <button
+            onClick={handlePinSubmit}
+            className="bg-[#ea580c] text-white px-8 py-3 rounded-xl font-medium active:bg-orange-700"
+          >
+            解锁
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-20 pt-4 px-4">
