@@ -37,6 +37,18 @@ function bgSync(fn: () => PromiseLike<unknown>): void {
   Promise.resolve(fn()).catch(err => console.warn('[sync]', err));
 }
 
+// ==================== Event Log ====================
+
+function logEvent(eventType: string, eventData: Record<string, unknown> = {}): void {
+  bgSync(() => supabase.from('event_log').insert({
+    event_type: eventType,
+    event_data: eventData,
+    created_at: new Date().toISOString(),
+  }).then(() => {}));
+}
+
+export { logEvent };
+
 // ==================== Initial Sync ====================
 
 let synced = false;
@@ -169,9 +181,10 @@ export const orders = {
     all.push(order);
     setLocal('xin_orders', all);
     bgSync(() => supabase.from('orders').insert(order).then(() => {}));
+    logEvent('order_create', { table_number: tableNumber });
     return order;
   },
-  settle(id: string): void {
+  settle(id: string, customerCount: number = 0): void {
     const all = getLocal<Order>('xin_orders');
     const idx = all.findIndex(o => o.id === id);
     if (idx >= 0) {
@@ -182,8 +195,12 @@ export const orders = {
       all[idx].total = total;
       setLocal('xin_orders', all);
       bgSync(() => supabase.from('orders').update({
-        status: 'settled', settled_at: all[idx].settled_at, total,
+        status: 'settled', settled_at: all[idx].settled_at, total, customer_count: customerCount,
       }).eq('id', id).then(() => {}));
+      logEvent('order_settle', {
+        table_number: all[idx].table_number, total, customer_count: customerCount,
+        items_count: items.length,
+      });
     }
   },
   void(id: string): void {
@@ -193,6 +210,7 @@ export const orders = {
       all[idx].status = 'voided';
       setLocal('xin_orders', all);
       bgSync(() => supabase.from('orders').update({ status: 'voided' }).eq('id', id).then(() => {}));
+      logEvent('order_void', { table_number: all[idx].table_number, total: all[idx].total });
     }
   },
   updateTotal(id: string): void {
@@ -224,6 +242,7 @@ export const orderItems = {
       bgSync(() => supabase.from('order_items').update({
         quantity: existing.quantity, subtotal: existing.subtotal,
       }).eq('id', existing.id).then(() => {}));
+      logEvent('item_add', { dish_name: dish.name, quantity, price: dish.price });
       return existing;
     }
     const item: OrderItem = {
@@ -235,6 +254,7 @@ export const orderItems = {
     setLocal('xin_order_items', all);
     orders.updateTotal(orderId);
     bgSync(() => supabase.from('order_items').insert(item).then(() => {}));
+    logEvent('item_add', { dish_name: dish.name, quantity, price: dish.price });
     return item;
   },
   removeItem(orderId: string, dishId: string, quantity: number = 1): void {
@@ -254,6 +274,7 @@ export const orderItems = {
       }
       setLocal('xin_order_items', all);
       orders.updateTotal(orderId);
+      logEvent('item_remove', { dish_name: item.dish_name, quantity });
     }
   },
   getTopDishes(date: string, limit: number = 10): { dish_name: string; total_quantity: number; total_revenue: number }[] {
@@ -294,6 +315,7 @@ export const expenses = {
     all.push(expense);
     setLocal('xin_expenses', all);
     bgSync(() => supabase.from('expenses').insert(expense).then(() => {}));
+    logEvent('expense_add', { amount, category, description });
     return expense;
   },
   update(id: string, updates: Partial<Pick<Expense, 'amount' | 'description' | 'category' | 'date'>>): void {

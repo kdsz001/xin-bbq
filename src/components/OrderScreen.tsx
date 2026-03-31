@@ -15,6 +15,7 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
   const [orderId, setOrderId] = useState<string>('');
   const [total, setTotal] = useState(0);
   const [showSettleConfirm, setShowSettleConfirm] = useState(false);
+  const [customerCount, setCustomerCount] = useState(1);
 
   const refresh = useCallback(() => {
     setMenuItems(dishes.getAll());
@@ -50,7 +51,7 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
   };
 
   const handleSettle = () => {
-    orders.settle(orderId);
+    orders.settle(orderId, customerCount);
     onBack();
   };
 
@@ -148,9 +149,23 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
                 </div>
               ))}
             </div>
-            <div className="border-t border-gray-200 pt-3 mb-6 flex justify-between">
+            <div className="border-t border-gray-200 pt-3 mb-4 flex justify-between">
               <span className="font-bold text-lg">合计</span>
               <span className="font-bold text-lg text-[#ea580c]">¥{total.toFixed(0)}</span>
+            </div>
+            <div className="flex items-center justify-between mb-6 bg-gray-50 rounded-lg px-3 py-2">
+              <span className="text-sm text-gray-500">用餐人数</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setCustomerCount(Math.max(1, customerCount - 1))}
+                  className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold active:bg-gray-300"
+                >-</button>
+                <span className="w-6 text-center font-bold">{customerCount}</span>
+                <button
+                  onClick={() => setCustomerCount(customerCount + 1)}
+                  className="w-8 h-8 rounded-full bg-[#ea580c] text-white flex items-center justify-center text-sm font-bold active:bg-orange-700"
+                >+</button>
+              </div>
             </div>
             <div className="flex gap-3">
               <button

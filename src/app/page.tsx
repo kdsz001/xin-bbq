@@ -9,7 +9,7 @@ import SettingsScreen from '@/components/SettingsScreen';
 import PinScreen from '@/components/PinScreen';
 import OnlineStatus from '@/components/OnlineStatus';
 import StartDayScreen from '@/components/StartDayScreen';
-import { settings, initialSync } from '@/lib/store';
+import { settings, initialSync, logEvent } from '@/lib/store';
 
 type Tab = 'tables' | 'accounting' | 'settings';
 
@@ -78,6 +78,7 @@ export default function Home() {
       <StartDayScreen onStart={() => {
         markDayStarted();
         setDayStarted(true);
+        logEvent('day_start', {});
       }} />
     );
   }
@@ -98,6 +99,7 @@ export default function Home() {
         <TablesScreen
           onOpenTable={setOrderTable}
           onEndDay={() => {
+            logEvent('day_end', {});
             markDayEnded();
             setDayStarted(false);
           }}
