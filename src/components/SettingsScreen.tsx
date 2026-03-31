@@ -346,13 +346,29 @@ export default function SettingsScreen() {
                 />
               </div>
               <div>
-                <label className="text-sm text-gray-500 mb-1 block">分类（可选）</label>
+                <label className="text-sm text-gray-500 mb-1 block">分类</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {['肉类', '蔬菜', '饮料酒', '主食', '小吃', '其他'].map(cat => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setDishCategory(cat)}
+                      className={`px-3 py-1.5 rounded-full text-sm ${
+                        dishCategory === cat
+                          ? 'bg-[#ea580c] text-white'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
                 <input
                   type="text"
                   value={dishCategory}
                   onChange={e => setDishCategory(e.target.value)}
-                  placeholder="例如：烤串"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-3"
+                  placeholder="或输入自定义分类"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
             </div>
