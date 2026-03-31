@@ -29,6 +29,7 @@ export default function AccountingScreen() {
   const [partnerStatement, setPartnerStatement] = useState<{ date: string; items: { dish_name: string; quantity: number; subtotal: number; collector: string; dish_owner: string }[] }[]>([]);
   const [settlementList, setSettlementList] = useState<Settlement[]>([]);
   const [showSettlementForm, setShowSettlementForm] = useState(false);
+  const [settlementDirection, setSettlementDirection] = useState<'receive' | 'pay'>('receive');
   const [settlementAmount, setSettlementAmount] = useState('');
   const [settlementNote, setSettlementNote] = useState('');
   const [showStatement, setShowStatement] = useState(false);
@@ -375,20 +376,26 @@ export default function AccountingScreen() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex gap-2 mb-2">
             <button
-              onClick={() => setShowSettlementForm(true)}
-              className="flex-1 bg-[#ea580c] text-white rounded-xl py-3 font-medium active:bg-orange-700"
+              onClick={() => { setSettlementDirection('receive'); setShowSettlementForm(true); }}
+              className="flex-1 bg-[#ea580c] text-white rounded-xl py-3 font-medium active:bg-orange-700 text-sm"
             >
-              核销结算
+              收到饭店的钱
             </button>
             <button
-              onClick={() => setShowStatement(!showStatement)}
-              className="flex-1 border border-gray-300 rounded-xl py-3 font-medium active:bg-gray-100"
+              onClick={() => { setSettlementDirection('pay'); setShowSettlementForm(true); }}
+              className="flex-1 bg-[#3b82f6] text-white rounded-xl py-3 font-medium active:bg-blue-700 text-sm"
             >
-              {showStatement ? '收起对账单' : '查看对账单'}
+              付给饭店钱
             </button>
           </div>
+          <button
+            onClick={() => setShowStatement(!showStatement)}
+            className="w-full border border-gray-300 rounded-xl py-3 font-medium active:bg-gray-100 mb-4 text-sm"
+          >
+            {showStatement ? '收起对账单' : '查看对账单'}
+          </button>
 
           {/* Statement Detail */}
           {showStatement && (
@@ -440,8 +447,13 @@ export default function AccountingScreen() {
                   <div key={s.id} className="bg-white rounded-xl p-3 border border-gray-100">
                     <div className="flex justify-between items-center">
                       <div>
-                        <span className="font-medium text-[#16a34a]">¥{s.amount.toFixed(0)}</span>
-                        {s.note && <span className="text-sm text-gray-500 ml-2">{s.note}</span>}
+                        <span className={`font-medium ${s.amount >= 0 ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
+                          {s.amount >= 0 ? `+¥${s.amount.toFixed(0)}` : `-¥${Math.abs(s.amount).toFixed(0)}`}
+                        </span>
+                        <span className="text-xs text-gray-400 ml-2">
+                          {s.amount >= 0 ? '收到' : '付出'}
+                        </span>
+                        {s.note && <span className="text-sm text-gray-500 ml-1">{s.note}</span>}
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-400">{s.date}</span>
@@ -465,7 +477,12 @@ export default function AccountingScreen() {
       {showSettlementForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center max-w-[480px] mx-auto px-6">
           <div className="bg-white rounded-2xl w-full p-6">
-            <h2 className="text-lg font-bold mb-4">核销结算</h2>
+            <h2 className="text-lg font-bold mb-2">
+              {settlementDirection === 'receive' ? '收到饭店的钱' : '付给饭店钱'}
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              {settlementDirection === 'receive' ? '饭店把欠你的钱结给你了' : '你把欠饭店的钱付给他们了'}
+            </p>
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-gray-500 mb-1 block">金额</label>
@@ -498,9 +515,11 @@ export default function AccountingScreen() {
               </button>
               <button
                 onClick={() => {
-                  const amount = parseFloat(settlementAmount);
-                  if (!amount || amount <= 0) return;
-                  settlements.create(amount, settlementNote.trim());
+                  const rawAmount = parseFloat(settlementAmount);
+                  if (!rawAmount || rawAmount <= 0) return;
+                  const amount = settlementDirection === 'receive' ? rawAmount : -rawAmount;
+                  const autoNote = settlementDirection === 'receive' ? '收到饭店结算' : '付给饭店';
+                  settlements.create(amount, settlementNote.trim() || autoNote);
                   setShowSettlementForm(false);
                   setSettlementAmount('');
                   setSettlementNote('');
