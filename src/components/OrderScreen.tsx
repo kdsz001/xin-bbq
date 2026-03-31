@@ -71,11 +71,27 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
         <div className="w-10" />
       </div>
 
-      {/* Current total */}
-      <div className="bg-[#ea580c] text-white rounded-xl p-4 mb-4 text-center">
-        <div className="text-sm opacity-80">当前总价</div>
-        <div className="text-3xl font-bold">¥{total.toFixed(0)}</div>
-        <div className="text-sm opacity-80 mt-1">{currentItems.length} 道菜</div>
+      {/* Current total + customer count */}
+      <div className="bg-[#ea580c] text-white rounded-xl p-4 mb-4">
+        <div className="text-center">
+          <div className="text-sm opacity-80">当前总价</div>
+          <div className="text-3xl font-bold">¥{total.toFixed(0)}</div>
+        </div>
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/20">
+          <span className="text-sm opacity-80">{currentItems.length} 道菜</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm opacity-80">人数</span>
+            <button
+              onClick={() => setCustomerCount(Math.max(1, customerCount - 1))}
+              className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold active:bg-white/30"
+            >-</button>
+            <span className="w-5 text-center font-bold">{customerCount}</span>
+            <button
+              onClick={() => setCustomerCount(customerCount + 1)}
+              className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold active:bg-white/30"
+            >+</button>
+          </div>
+        </div>
       </div>
 
       {/* Menu */}
@@ -149,24 +165,11 @@ export default function OrderScreen({ tableNumber, onBack }: OrderScreenProps) {
                 </div>
               ))}
             </div>
-            <div className="border-t border-gray-200 pt-3 mb-4 flex justify-between">
+            <div className="border-t border-gray-200 pt-3 mb-2 flex justify-between">
               <span className="font-bold text-lg">合计</span>
               <span className="font-bold text-lg text-[#ea580c]">¥{total.toFixed(0)}</span>
             </div>
-            <div className="flex items-center justify-between mb-6 bg-gray-50 rounded-lg px-3 py-2">
-              <span className="text-sm text-gray-500">用餐人数</span>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setCustomerCount(Math.max(1, customerCount - 1))}
-                  className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold active:bg-gray-300"
-                >-</button>
-                <span className="w-6 text-center font-bold">{customerCount}</span>
-                <button
-                  onClick={() => setCustomerCount(customerCount + 1)}
-                  className="w-8 h-8 rounded-full bg-[#ea580c] text-white flex items-center justify-center text-sm font-bold active:bg-orange-700"
-                >+</button>
-              </div>
-            </div>
+            <div className="text-sm text-gray-500 mb-6">用餐人数：{customerCount} 人 · 人均 ¥{customerCount > 0 ? (total / customerCount).toFixed(0) : 0}</div>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowSettleConfirm(false)}
